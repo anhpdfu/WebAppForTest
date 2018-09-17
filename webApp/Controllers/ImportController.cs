@@ -23,6 +23,23 @@ namespace webApp.Controllers
         [HttpPost]
         public bool Upload(HttpPostedFileBase file)
         {
+            MemoryStream target = new MemoryStream();
+            file.InputStream.CopyTo(target);
+            byte[] data = target.ToArray();
+            HttpFile httpFile = new HttpFile(file.FileName, file.ContentType, data);
+
+            DataSet dataSet = ReadExcel.ToDataSet(httpFile.Buffer);
+
+            DataTable resultDt = dataSet.Tables[0];
+
+            List<Student> students = new List<Student>();
+            students = Convertor.ConvertToList<Student>(resultDt);
+
+            return true;
+        }
+
+        public bool Upload2(HttpPostedFileBase file)
+        {
             bool formatted = false;
             List<string> sheetNames = new List<string>();
             DataSet dataSet = new DataSet();
@@ -49,15 +66,28 @@ namespace webApp.Controllers
                 {
                     int ColCount = xls.ColCount;
                     //Add one column on the dataset for each used column on Excel.
+                    //for (int c = 1; c <= ColCount; c++)
+                    //{
+                    //    Data.Columns.Add(TCellAddress.EncodeColumn(c), typeof(String));  //Here we will add all strings, since we do not know what we are waiting for.
+                    //}
+
                     for (int c = 1; c <= ColCount; c++)
                     {
-                        Data.Columns.Add(TCellAddress.EncodeColumn(c), typeof(String));  //Here we will add all strings, since we do not know what we are waiting for.
+                        int r = 1;
+                        int XF = 0; //This is the cell format, we will not use it here.
+                        object val = xls.GetCellValueIndexed(r, c, ref XF);
+                        string propName = string.Empty;
+
+                        TFormula Fmla = val as TFormula;
+                        propName = Convert.ToString(Fmla != null ? Fmla.Result : val);
+
+                        Data.Columns.Add(propName, typeof(String));
                     }
 
                     string[] dr = new string[ColCount];
 
                     int RowCount = xls.RowCount;
-                    for (int r = 1; r <= RowCount; r++)
+                    for (int r = 2; r <= RowCount; r++)
                     {
                         Array.Clear(dr, 0, dr.Length);
                         //This loop will only loop on used cells. It is more efficient than looping on all the columns.
